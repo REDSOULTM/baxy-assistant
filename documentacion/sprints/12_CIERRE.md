@@ -1,13 +1,9 @@
-# Goal 11 — El cierre (movido)
-
-Este documento se movió a [`12_CIERRE.md`](12_CIERRE.md). El Goal 11 vigente es
-[`11_AMBIENTE.md`](11_AMBIENTE.md): reejecutar las filas ambientales del Goal 10
-en un PC con el ambiente de uso listo.
+# Goal 12 — El cierre
 
 > **Esto es un goal, no una tarea.** Se lanza y corre hasta cumplirse. No pares a
 > mitad a pedir aprobación ni a preguntar: ante una duda, elige la opción más
-> razonable, anótala y sigue. Es el último de los once: cuando cierra, BAXY es un
-> producto terminado.
+> razonable, anótala y sigue. Es el último de los doce: cuando cierra, BAXY es un
+> producto terminado. El Goal 11 (ambiente listo) ya cobró las filas ambientales.
 
 ## Dónde trabajas
 
