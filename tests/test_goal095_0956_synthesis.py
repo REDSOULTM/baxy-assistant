@@ -1,17 +1,17 @@
-"""Goal 09.5.5 — load the shipped synthesis, not a fixture copy."""
+"""Goal 09.5.6 — load the shipped synthesis, not a fixture copy."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.goal095_0955_synthesis import (
-    DECISIONS,
+from scripts.goal095_0956_synthesis import (
+    EVIDENCE_KINDS,
     IN_SCOPE_LANGS,
     LEDGER_REL,
-    MODELS_PROMPT,
-    REQUIRED_FAMILIES,
+    REQUIRED_SUBAREAS,
     SCHEMA,
     SYNTHESIS_REL,
+    TOOLS_PROMPT,
     VOICE_PROMPT,
     index_ledger_card_ids,
     load_json,
@@ -20,7 +20,6 @@ from scripts.goal095_0955_synthesis import (
     synthesis_path,
     validate_synthesis,
 )
-from scripts.goal095_0956_synthesis import TOOLS_PROMPT
 from scripts.goal095_docs_ledger import load_json as load_json_docs
 from scripts.goal095_evidence_campaign import campaign_path as evidence_campaign_path
 from scripts.goal095_evidence_campaign import counts_for
@@ -28,7 +27,7 @@ from scripts.goal095_evidence_campaign import counts_for
 REPO = Path(__file__).resolve().parents[1]
 
 
-def test_shipped_0955_synthesis_is_the_repo_artifact() -> None:
+def test_shipped_0956_synthesis_is_the_repo_artifact() -> None:
     path = synthesis_path(REPO)
     assert path == REPO / SYNTHESIS_REL
     assert path.is_file()
@@ -37,37 +36,42 @@ def test_shipped_0955_synthesis_is_the_repo_artifact() -> None:
     assert path.read_text(encoding="utf-8").startswith("{")
 
 
-def test_shipped_0955_synthesis_satisfies_goal() -> None:
+def test_shipped_0956_synthesis_satisfies_goal() -> None:
     data = load_synthesis(REPO)
     card_ids = index_ledger_card_ids(REPO)
     errors = validate_synthesis(data, card_ids, repo=REPO)
     assert errors == []
-    families = {row["family"] for row in data["candidates"]}
-    assert set(REQUIRED_FAMILIES) <= families
-    claimed = set(data["inventory_claimed_ids"])
-    present = {row["id"] for row in data["candidates"]}
-    assert claimed <= present
+    present = {row["id"] for row in data["subareas"]}
+    assert set(REQUIRED_SUBAREAS) <= present
     assert data["languages_in_scope"] == list(IN_SCOPE_LANGS)
     assert data["other_languages_create_work"] is False
     assert data["other_language_work_items"] == []
+    assert data["english_app_names_in_spanish_count_as_spanglish"] is True
+    assert data["goal09_reopened"] is False
     assert data["live_weights_changed"] is False
-    assert data["next_human_prompt"] == VOICE_PROMPT
-    assert MODELS_PROMPT not in data["next_human_prompt"]
-    for piece in data["current_stack"]:
-        assert piece["decision"] in DECISIONS
-        assert piece["umbrales"].strip()
-        assert piece["coste"].strip()
+    assert data["next_human_prompt"] == TOOLS_PROMPT
+    assert VOICE_PROMPT not in data["next_human_prompt"]
+    assert data["qwen_asr"]["silenced"] is False
+    assert data["gemma_native_audio"]["silenced"] is False
+    assert data["transplants"] == []
+    assert str(data["transplants_empty_reason"]).strip()
+    for row in data["subareas"]:
+        assert row["evidence_kind"] in EVIDENCE_KINDS
+        assert row["gap"]["proven"] is True
+        assert row["gap"]["reopen_goal09"] is not True
+        assert row["exitos"] and row["rechazos"]
+        assert row["citations"]
 
 
-def test_shipped_0955_ledger_points_at_synthesis_and_09_5_6() -> None:
+def test_shipped_0956_ledger_points_at_synthesis_and_09_5_7() -> None:
     path = synthesis_ledger_path(REPO)
     assert path == REPO / LEDGER_REL
     assert path.is_file()
     ledger = load_json(path)
     assert ledger["status"] == "complete"
     assert ledger["synthesis_ref"] == SYNTHESIS_REL.replace("\\", "/")
-    assert ledger["next_prompt"] == VOICE_PROMPT
-    assert MODELS_PROMPT not in str(ledger["next_prompt"])
+    assert ledger["next_prompt"] == TOOLS_PROMPT
+    assert VOICE_PROMPT not in str(ledger["next_prompt"])
     raw = path.read_text(encoding="utf-8").casefold()
     assert "c:\\users\\" not in raw
     assert "d:\\perfil\\" not in raw
@@ -88,7 +92,6 @@ def test_0954_campaigns_stay_closed_and_evidence_next_is_09_5_7() -> None:
         REPO / "artifacts" / "goal095" / "ledger" / "evidence_assets-132-baxy_schema_agent.json"
     )
     assert last["next_prompt"] == TOOLS_PROMPT
-    assert "09.5.5_MODELOS_ROUTER_IDIOMAS.md" not in last["next_prompt"]
     assert "09.5.6_VOZ_AUDIO_PRESENCIA.md" not in last["next_prompt"]
     docs = load_json_docs(REPO / "artifacts" / "goal095" / "campaigns" / "docs.json")
     code = load_json_docs(REPO / "artifacts" / "goal095" / "campaigns" / "code_tests.json")
