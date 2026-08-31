@@ -1,14 +1,16 @@
-"""Goal 09.5.7 — load the shipped synthesis, not a fixture copy."""
+"""Goal 09.5.8 — load the shipped synthesis, not a fixture copy."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.goal095_0957_synthesis import (
+from scripts.goal095_0958_synthesis import (
+    DECISIONS,
+    DECIDE_PROMPT,
     INVARIANT_FLAGS,
     LEDGER_REL,
-    REJECTED_PATTERNS,
-    REQUIRED_CAPABILITIES,
+    REQUIRED_AREAS,
+    RESOURCE_AREAS,
     RUNTIME_PROMPT,
     SCHEMA,
     SYNTHESIS_REL,
@@ -21,7 +23,6 @@ from scripts.goal095_0957_synthesis import (
     synthesis_path,
     validate_synthesis,
 )
-from scripts.goal095_0958_synthesis import DECIDE_PROMPT
 from scripts.goal095_docs_ledger import load_json as load_json_docs
 from scripts.goal095_evidence_campaign import campaign_path as evidence_campaign_path
 from scripts.goal095_evidence_campaign import counts_for
@@ -29,7 +30,7 @@ from scripts.goal095_evidence_campaign import counts_for
 REPO = Path(__file__).resolve().parents[1]
 
 
-def test_shipped_0957_synthesis_is_the_repo_artifact() -> None:
+def test_shipped_0958_synthesis_is_the_repo_artifact() -> None:
     path = synthesis_path(REPO)
     assert path == REPO / SYNTHESIS_REL
     assert path.is_file()
@@ -38,57 +39,63 @@ def test_shipped_0957_synthesis_is_the_repo_artifact() -> None:
     assert path.read_text(encoding="utf-8").startswith("{")
 
 
-def test_shipped_0957_synthesis_satisfies_goal() -> None:
+def test_shipped_0958_synthesis_satisfies_goal() -> None:
     data = load_synthesis(REPO)
     card_ids = index_ledger_card_ids(REPO)
     errors = validate_synthesis(data, card_ids, repo=REPO)
     assert errors == []
-    present = {row["id"] for row in data["capabilities"]}
-    assert set(REQUIRED_CAPABILITIES) <= present
-    assert data["next_human_prompt"] == RUNTIME_PROMPT
+    present = {row["id"] for row in data["areas"]}
+    assert set(REQUIRED_AREAS) <= present
+    assert data["next_human_prompt"] == DECIDE_PROMPT
+    assert RUNTIME_PROMPT not in data["next_human_prompt"]
     assert TOOLS_PROMPT not in data["next_human_prompt"]
     assert VOICE_PROMPT not in data["next_human_prompt"]
-    assert data["live_catalog_changed"] is False
-    assert data["live_providers_changed"] is False
-    assert data["live_mission_engine_changed"] is False
+    assert data["live_runtime_changed"] is False
+    assert data["live_fieldui_dist_changed"] is False
+    assert data["live_setup_changed"] is False
+    assert data["goal09_reopened"] is False
+    assert data["soak_24h_requirement"] is False
     assert data["transplants"] == []
     assert str(data["transplants_empty_reason"]).strip()
     assert data["qwen_vl"]["silenced"] is False
     for name in INVARIANT_FLAGS:
         assert data["invariants"][name] is True
-    patterns = {row["pattern"] for row in data["rejections"]}
-    assert set(REJECTED_PATTERNS) <= patterns
-    assert all(row.get("proposed") is not True for row in data["rejections"])
-    kinds = {row["kind"] for row in data["missions"]}
-    assert "simple" in kinds and "chained" in kinds
-    assert any(row.get("complete") is True for row in data["missions"])
-    for row in data["capabilities"]:
-        assert str(row["current_operation"]).strip()
-        assert str(row["owning_test"]).strip() or (
-            isinstance(row.get("proven_gap"), dict) and row["proven_gap"].get("proven") is True
-        )
-        piece = row["best_piece"]
-        assert str(piece["piece"]).strip()
-        assert str(piece["evidence"]).strip()
-        assert str(piece["coste"]).strip()
-        assert str(piece["mecanismo_de_fracaso"]).strip()
+    for row in data["areas"]:
+        assert row["decision"] in DECISIONS
+        assert str(row["historical"]).strip()
+        assert str(row["live_owner"]).strip()
+        assert str(row["goal10_consumer"]).strip()
+        assert str(row["source"]).strip()
+        assert str(row["owner"]).strip()
+        assert str(row["owning_test"]).strip()
+        assert str(row["mecanismo_reemplazado"]).strip()
+        assert row["second_live_path"] is not True
         assert row["citations"]
         for flag in INVARIANT_FLAGS:
             assert row["invariants"][flag] is True
         for cite in row["citations"]:
             assert cite["card_id"] in card_ids
             assert "biblioteca/" not in str(cite.get("path") or "")
+        measurement = row["measurement"]
+        if row["id"] in RESOURCE_AREAS or measurement.get("comparable") is True:
+            for field in ("hardware", "version", "escenario", "denominador"):
+                assert str(measurement[field]).strip()
+            assert str(measurement["own_overhead"]).strip()
+            assert str(measurement["inference"]).strip()
+        if measurement.get("comparable") is False:
+            assert str(measurement.get("incomparable_reason") or "").strip()
+            assert row["decision"] != "reusar"
 
 
-def test_shipped_0957_ledger_points_at_synthesis_and_09_5_8() -> None:
+def test_shipped_0958_ledger_points_at_synthesis_and_09_5_9() -> None:
     path = synthesis_ledger_path(REPO)
     assert path == REPO / LEDGER_REL
     assert path.is_file()
     ledger = load_json(path)
     assert ledger["status"] == "complete"
     assert ledger["synthesis_ref"] == SYNTHESIS_REL.replace("\\", "/")
-    assert ledger["next_prompt"] == RUNTIME_PROMPT
-    assert TOOLS_PROMPT not in str(ledger["next_prompt"])
+    assert ledger["next_prompt"] == DECIDE_PROMPT
+    assert RUNTIME_PROMPT not in str(ledger["next_prompt"])
     raw = path.read_text(encoding="utf-8").casefold()
     assert "c:\\users\\" not in raw
     assert "d:\\perfil\\" not in raw
@@ -109,11 +116,11 @@ def test_0954_campaigns_stay_closed_and_evidence_next_is_09_5_9() -> None:
         REPO / "artifacts" / "goal095" / "ledger" / "evidence_assets-132-baxy_schema_agent.json"
     )
     assert last["next_prompt"] == DECIDE_PROMPT
+    assert "09.5.8_RUNTIME_UI_RECURSOS.md" not in last["next_prompt"]
     assert "09.5.7_TOOLS_SKILLS_MISIONES.md" not in last["next_prompt"]
     assert "09.5.6_VOZ_AUDIO_PRESENCIA.md" not in last["next_prompt"]
     assert "09.5.5_MODELOS_ROUTER_IDIOMAS.md" not in last["next_prompt"]
     assert "09.5.4_AUDITAR_EVIDENCIA_LOTE.md" not in last["next_prompt"]
-    assert "09.5.8_RUNTIME_UI_RECURSOS.md" not in last["next_prompt"]
     docs = load_json_docs(REPO / "artifacts" / "goal095" / "campaigns" / "docs.json")
     code = load_json_docs(REPO / "artifacts" / "goal095" / "campaigns" / "code_tests.json")
     assert docs["counts"]["pending"] == 0 and docs["counts"]["complete"] == 25
