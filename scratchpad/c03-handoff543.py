@@ -1,4 +1,10 @@
-# Handoff C03 — 543
+from pathlib import Path
+from datetime import datetime, timezone
+import json
+
+root=Path(__file__).resolve().parents[1]
+base=root/'artifacts/comprobaciones/C03'
+text='''# Handoff C03 — 543
 
 C03 EN_CURSO, rama Goal-c03, tarea 01a07974-2a33-7ed3-ba87-2436944e8115. La autorización536 permite históricos y mensajes nuevos: no queda pendiente aclaración del dueño. El goal API sigue blocked y no tiene herramienta de reanudación; el trabajo continúa por instrucción directa. Main intacto; sin subagentes. BAXY manual cerrado y encuesta original preservada.
 
@@ -17,3 +23,19 @@ Hallazgo de RAM a partir de las muestras543: el worker del encoder E5 llega a858
 Siguiente de conducta: reparar alcance/composición de hora+batería. tests/test_effect_intent.py:4118 conserva el literal histórico como abstención, no permiso de responder una mitad; estudiar _request_clauses y coordinación de preguntas. Ocho rutas, cobertura742, UI real, loopback completo/supresión AEC, recursos conjuntos y Full final siguen pendientes. Voz humana/wake/FAR-FRR corresponden a C08 con evidencia y reanudación, sin cerrar filas ajenas. No cerrar apps del usuario para liberar RAM.
 
 Publicación de evidencia: las carpetas537–543 llevan -text en .gitattributes para conservar los bytes que sellan PINS.json. Git había normalizado CRLF al publicar542; se reindexan los bytes originales sin cambiar los hashes ni la captura. Verificar los blobs indexados contra cada pin antes de publicar esta corrección documental.
+'''
+(base/'HANDOFF.md').write_text(text,encoding='utf-8',newline='\n')
+with (base/'CHECKPOINT.md').open('a',encoding='utf-8',newline='\n') as handle:
+    handle.write('\n\n## Tramo543 — alcance confirmado y encuesta6/736/0\n\n'+
+      'Fuente542 publicada en564802461608df97a7fc38f822b164fdb794d4c4. Producto543:22finales, exit0, sin cortes;3controles GPU con gpu_identity verificado. GPU3497,559MiB/RAM2424,773MiB,65,344s; sin UI/voz. Completa19entradas no ejecutadas541 y añade3controles. Encuesta6cubiertos/736abiertos/0no aplicables: nuevosH0041/H0042/H0062. El resto permanece abierto con evidencia y causa porcase_id. VerRESULT.json/privados, no confundir emisión con éxito.\n\n'+
+      'Se observan fallos de sujeto en CPU, despedida metanarrada y hora+batería no resuelta. El workerE5 ocupa858,63MiB en la muestra máxima543: investigar ONNX del mismo encoder sin cambiar calidad, prefijos ni ranking antes de adoptar nada. Fuentes primarias e instrucciones de reanudación enHANDOFF. No hay descarga/benchmark nuevo aún.\n\n'+
+      'Se preservan bytes originales de evidencias537–543 mediante reglas -text específicas; corregir normalización de Git, verificarPINS y publicar. Ningún cambio de fuente después542. Full final y resto de C03 pendientes.\n')
+path=base/'RELEVO_ACTIVO.json'
+state=json.loads(path.read_text(encoding='utf-8'))
+state.update(confirmedAtUtc=datetime.now(timezone.utc).isoformat(),
+             checkpoint='543: GPU scope verified in real product; survey6covered/736open/0NA.',
+             publishedSourceCommit='564802461608df97a7fc38f822b164fdb794d4c4',
+             surveyVerificationCounts={'covered':6,'open':736,'not_applicable':0},
+             continuation='Repair compound time+battery and factual presentation; investigate measured encoder RAM without sacrificing ranking. Continue C03, no owner clarification pending.')
+path.write_text(json.dumps(state,ensure_ascii=False,indent=2)+'\n',encoding='utf-8',newline='\n')
+print('Handoff543 and counts6/736/0 preserved.')
