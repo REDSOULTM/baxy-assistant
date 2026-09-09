@@ -1,0 +1,16 @@
+{
+  "launcher": 93464,
+  "command": [
+    "py",
+    "main.py",
+    "--conductor",
+    "--profile",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-conversation-profile621",
+    "--capture",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-conversation-regression621-private\\capture",
+    "--turns-file",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-conversation-regression621-private\\turns.jsonl",
+    "--timeout-ms",
+    "120000"
+  ]
+}

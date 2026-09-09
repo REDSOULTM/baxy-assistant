@@ -7,5 +7,3 @@ Se rechaza la fuente compartida619 y se restauran exactamente llm.py y los tres 
 Dueñas619:1049pass/1skip ambiental por archivos de campaña STT ausentes. Fast inicial rojo por DLL bloqueadas durante620; recuperación posterior sin BAXY activo:verde, Release5,49s,0advertencias/errores. Esa validación no invalida el rechazo de conducta. No se ejecutó ni se afirma Full619. Full606 sigue ligado a la fuente restaurada:10218pass+466subtests/3skips Python;4452pass/1skip agregado .NET.
 
 621:3499,559MiB GPU/2482,797MiB RAM,91,968s, sin violaciones; no UI/voz conjunta. No cambia modelo, perfil registrado ni adaptador CPU. Se abandona la expansión del guard615–617 y no se encadena otro barrido de prompts. El siguiente contraste debe valorar una alternativa con evidencia y perfil propios sobre los fallos de comprensión/tono, antes de más integración.
-
-No procesos de campaña ni compilación activos. Evidencia612–621 sellada lista para publicar en Goal-c03. Main intacto. No queda fuente candidata:606 restaurado exacto; no repetir pruebas por restauración de bytes ya validados. El dueño permite históricos/nuevos/encuesta y trabajo autónomo; no queda decisión pendiente.
