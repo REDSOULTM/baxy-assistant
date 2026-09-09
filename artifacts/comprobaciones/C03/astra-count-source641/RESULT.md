@@ -1,5 +1,3 @@
-# Handoff C03 — 641 validada, publicación pendiente
-
 # Fuente 641 / producto 642 — cantidad inglesa con lectura nueva
 
 Se conserva el acto de consulta de cantidad contra nombres del catálogo autenticado, sin ampliar `how` a cualquier petición. Los controles de explicaciones, cantidades de ventanas cerradas, ventanas físicas, otro dispositivo y peticiones compuestas mantienen su frontera. No cambia el modelo, su perfil, el compositor ni el provider.
