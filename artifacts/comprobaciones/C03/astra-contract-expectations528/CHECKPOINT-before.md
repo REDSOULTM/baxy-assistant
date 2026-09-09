@@ -1,4 +1,4 @@
-# Handoff C03 — 527, Full526 rojo
+# C03 — baseline Full526 rojo; revisión de alcance y registro527
 
 Objetivo íntegro activo en la tarea 01a07974-2a33-7ed3-ba87-2436944e8115. Autoridad vigente: astra-baseline-full526/GOAL_OBJECTIVE.md, identidad y AGENTS. Rama Goal-c03, commit de control 892c506cdd1a583048ed80af8e63703ec329a236 (todo WIP); main intacto 5f572ee1b48cb5e2543ee5e06510e51057c9c845. Sin push todavía; sin agentes. BAXY manual cerrado, encuesta742/rev1248 preservada. No diagnóstico GPU activo. Full60236 recogido con exit1.
 
