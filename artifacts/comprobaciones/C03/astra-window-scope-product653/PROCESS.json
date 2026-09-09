@@ -1,0 +1,16 @@
+{
+  "launcher": 101320,
+  "command": [
+    "py",
+    "main.py",
+    "--conductor",
+    "--profile",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-window-scope-profile653",
+    "--capture",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-window-scope-product653-private\\capture",
+    "--turns-file",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-window-scope-product653-private\\turns.jsonl",
+    "--timeout-ms",
+    "120000"
+  ]
+}
