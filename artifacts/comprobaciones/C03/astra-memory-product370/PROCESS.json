@@ -1,0 +1,16 @@
+{
+  "launcher": 59252,
+  "command": [
+    "py",
+    "main.py",
+    "--conductor",
+    "--profile",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-memory-profile370",
+    "--capture",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-memory-product370-private\\capture",
+    "--turns-file",
+    "C:\\Users\\emman\\AppData\\Local\\BAXY\\C03-memory-product370-private\\turns.jsonl",
+    "--timeout-ms",
+    "120000"
+  ]
+}
