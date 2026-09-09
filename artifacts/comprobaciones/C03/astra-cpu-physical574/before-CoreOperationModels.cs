@@ -121,8 +121,7 @@ internal sealed record ProcessListResult(
 internal sealed record SystemStatusCpuResult(
     double UsagePercent,
     int LogicalProcessorCount,
-    string? Model,
-    int? PhysicalCoreCount);
+    string? Model);
 
 internal sealed record SystemStatusMemoryResult(
     ulong TotalBytes,
