@@ -1,4 +1,29 @@
-# Handoff C03 — 781/782 — 2026-09-10
+"""Stage adopted781/782 only; retain unrelated work and historical seals."""
+from pathlib import Path
+import hashlib
+import json
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[1]
+BASE = ROOT / 'artifacts/comprobaciones/C03'
+OUT = BASE / 'CLOCK_CONTEXT781'
+read = lambda p: json.loads(p.read_text(encoding='utf-8-sig'))
+sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def write(path, value):
+    path.write_bytes((json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
+
+
+assert not subprocess.check_output(['git', 'diff', '--cached', '--name-only']).strip()
+assert read(OUT / 'ADOPTION.json')['status'] == 'adopted_contiguous_human_clock_context'
+pins = read(OUT / 'SOURCE_PINS.json')
+assert all(sha(ROOT / p) == h for p,h in pins.items())
+registry = read(BASE / 'STATUS_BATCH782/REGISTRY_UPDATE.json')
+state = read(BASE / 'RELEVO_ACTIVO.json')
+state.update(surveyVerificationCounts=registry['counts'], surveyRegistrySha256=registry['after_sha256'])
+write(BASE / 'RELEVO_ACTIVO.json', state)
+(BASE / 'HANDOFF.md').write_bytes('''# Handoff C03 — 781/782 — 2026-09-10
 
 Goal activo, Goal-c03; objetivo attachment58161a42 SHA621020a31266e98d043b07f214e8a8c6c3cb48f1287d27e411bf805402dadb86. Main intacto5f572ee1. BAXY manual cerrado, ninguna pregunta pendiente. Preservar WIP ajeno.
 
@@ -15,3 +40,19 @@ Marka779 viene del content bruto del modelo, no transformación BAXY: compose-au
 699:300respuestas nativas, mismas50tareas×6perfiles;737:57paresK2,3aciertos directos dañados al añadir prompt (H0037,H0600,processes-top3-en). Una pasada no mide variabilidad ni una regla individual. Qwen provisional. No repetir prompt de inventario tras768/771 sin mejora; pendientes inventario,RAMdisponible/usable,Internet/interfaz,WLAN,CPUacumulada,causalidadbatería776.
 
 Full7 histórico4574.NETpass/1skip+16omisiones;11399Pythonpass/3skips+466subtests. Faltan generalización742, reserva100, UI/loopback/AEC, consumo conjunto≤4GiB, matriz/continuidadC04–C09 yFull final. No rerun prepare/adopt781 ni782 sobre carpetas selladas; publicación778 receipt se incluye aquí.
+'''.encode('utf-8'))
+paths = []
+for folder,names in [
+    (OUT,['SOURCE_PINS.json','PROGRAM.json','PLAN.json','baseline.log','fixed.log','final.log','fast.log','VALIDATION.json','ADOPTION.json','REPORT.md']),
+    (BASE/'STATUS_BATCH782',['PREREG.json','PROCESS.json','EXIT.json','RESOURCES.json','REVIEW_CAPTURE.json','RESULT.json','REGISTRY_UPDATE.json','REPORT.md']),
+]:
+    paths += [folder/name for name in names]
+paths += [ROOT/'scratchpad'/name for name in ['c03-prepare-clock-context781.py','c03-status-batch782.py','c03-review-status782.py','c03-adopt-clock-context781.py','c03-publish-clock-context781.py']]
+paths += [BASE/'CLOCK_SCOPE778/PUBLICATION.json']
+for p in paths:
+    p.write_bytes(p.read_bytes().replace(b'\r\n',b'\n'))
+write(OUT/'PINS.json',{p.relative_to(ROOT).as_posix():sha(p) for p in paths})
+paths += [OUT/'PINS.json'] + [ROOT/p for p in pins] + [BASE/n for n in ['CHECKPOINT.md','HANDOFF.md','RELEVO_ACTIVO.json']]
+subprocess.run(['git','add','--',*[p.relative_to(ROOT).as_posix() for p in paths]],check=True)
+subprocess.run(['git','diff','--cached','--check'],check=True)
+print(json.dumps({'staged_paths':len(paths),'source_pins':len(pins)}))
