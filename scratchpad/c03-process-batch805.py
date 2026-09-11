@@ -1,4 +1,4 @@
-"""Frozen 50-case process-read category through the registered product with sealed process scope802.
+"""Frozen 50-case process-read category through the registered product with sealed process deadline804.
 
 Inherits conductor and resource observation mechanics from private-product521.
 No prompt/sampler adapters, no survey credit, no native model comparison.
@@ -19,9 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.measure_mind_budget import ProcessTreeGpuSampler, RamSampler
 
-OUT = ROOT / 'artifacts/comprobaciones/C03/PROCESS_BATCH803_RESUME'
-PRIVATE = Path(os.environ['LOCALAPPDATA']) / 'BAXY/C03-process-batch803-resume-private'
-PROFILE = PRIVATE.parent / 'C03-process-profile803-resume'
+OUT = ROOT / 'artifacts/comprobaciones/C03/PROCESS_BATCH805'
+PRIVATE = Path(os.environ['LOCALAPPDATA']) / 'BAXY/C03-process-batch805-private'
+PROFILE = PRIVATE.parent / 'C03-process-profile805'
 
 
 def sha(path):
@@ -50,54 +50,49 @@ assert not busy, f'preflight concurrent product/test processes: {busy}'
 panel_path = PRIVATE.parent / 'C03-process-panel795-private/panel.json'
 plan_path = ROOT / 'artifacts/comprobaciones/C03/PROCESS_CATEGORY795_PLAN.json'
 plan = read(plan_path)
-# Full798 covers the adopted combined baseline; Python-only802 requires its own gate.
-validation_root = ROOT / 'artifacts/comprobaciones/C03/PROCESS_BUDGET802'
+# Full804 covers cumulative Python802 plus C#804; own Fast is also required.
+validation_root = ROOT / 'artifacts/comprobaciones/C03/PROCESS_DEADLINE804'
 assert read(validation_root / 'VALIDATION_EXIT.json')['exit_code'] == 0
-full_validation_root = ROOT / 'artifacts/comprobaciones/C03/PROCESS_VOCABULARY798'
+full_validation_root = validation_root / 'FULL_RETRY1'
 assert read(full_validation_root / 'FULL_EXIT.json')['exit_code'] == 0
+assert read(full_validation_root / 'FULL_EXIT.json')['source_pins_unchanged'] is True
+assert sha(validation_root / 'SOURCE_PINS.json') == read(full_validation_root / 'FULL_EXIT.json')['source_pins_sha256']
 assert sha(panel_path) == plan['panel_sha256']
+original = read(ROOT / 'artifacts/comprobaciones/C03/PROCESS_BATCH803/PREREG.json')
+assert sha(panel_path) == original['panel_sha256']
+assert sha(plan_path) == original['plan_sha256']
 panel = read(panel_path)
 assert len(panel) == 50 and len({c['case_id'] for c in panel}) == 50
-previous = ROOT / 'artifacts/comprobaciones/C03/PROCESS_BATCH803'
-previous_private = PRIVATE.parent / 'C03-process-batch803-private'
-previous_prereg = read(previous / 'PREREG.json')
-assert sha(panel_path) == previous_prereg['panel_sha256']
-assert sha(plan_path) == previous_prereg['plan_sha256']
-previous_exit = read(previous / 'EXIT.json')
-assert previous_exit['exit_code'] == 1
-assert all(previous_exit[key] for key in ('manifest_unchanged', 'sources_unchanged',
-    'source802_unchanged', 'source764_unchanged', 'runner_unchanged', 'app_dll_unchanged'))
-assert read(previous / 'RESOURCES.json')['violations'] == ['system_free_ram_bound']
-previous_review = read(previous_private / 'live-review.json')
-assert len(previous_review) == 9
-assert [case['case_id'] for case in previous_review] == [case['case_id'] for case in panel[:9]]
-assert len(read(previous_private / 'root-adjudication.json')) == 9
-panel = panel[9:]
-assert len(panel) == 41
 manifest = PRIVATE.parent.parent / 'BAXYRuntime/mind-runtime-v1.json'
 config = read(manifest)
 assert sha(manifest) == '13b971b3165cc84e8d8612289a4e11b3a28b908beaa69576bf566d20a183d1ed'
 model = Path(config['gguf'])
 assert sha(model) == '3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597'
-pins802 = read(validation_root / 'SOURCE_PINS.json')
-pins764 = read(ROOT / 'artifacts/comprobaciones/C03/DENSE_INVENTORY764/SOURCE_PINS.json')
-assert all(sha(ROOT / path) == digest for path, digest in {**pins802, **pins764}.items())
-# Same DLL/source as the first segment; no new build or idle server.
-preparation_stdout = (previous_private / 'build-preparation.log').read_bytes()
-shutdown_stdout = (previous_private / 'build-servers-shutdown.log').read_bytes()
+pins804 = read(validation_root / 'SOURCE_PINS.json')
+assert all(sha(ROOT / path) == digest for path, digest in pins804.items())
+# Use the launcher build path before sealing. This does not start BAXY.
+preparation = subprocess.run([sys.executable, '-X', 'utf8', '-c',
+    'import main; main.compile_if_needed(force=False)'], cwd=ROOT,
+    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    creationflags=subprocess.CREATE_NO_WINDOW, check=True)
+assert all(sha(ROOT / path) == digest for path, digest in pins804.items())
+shutdown = subprocess.run([str(Path.home() / '.dotnet/dotnet.exe'), 'build-server', 'shutdown',
+                           '--msbuild', '--vbcscompiler'], cwd=ROOT,
+                          stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          creationflags=subprocess.CREATE_NO_WINDOW, check=True)
+assert psutil.virtual_memory().available >= 4000 * 2**20, 'post-build free RAM'
+
 paths = subprocess.check_output(
     ['git', 'ls-files', '--cached', '--others', '--exclude-standard', '--', 'src', 'scripts', 'main.py'],
     cwd=ROOT, text=True, encoding='utf-8').splitlines()
 sources = {name: sha(ROOT / name) for name in sorted(set(paths)) if (ROOT / name).is_file()}
-assert sources == previous_prereg['sources'], 'source differs from original803 candidate'
 app = ROOT / 'src/Baxy.App/bin/Release/net10.0-windows10.0.19041.0/Baxy.dll'
 app_sha = sha(app)
-assert app_sha == previous_prereg['app_dll_sha256']
 OUT.mkdir()
 PRIVATE.mkdir()
-(PRIVATE / 'build-preparation.log').write_bytes(preparation_stdout)
-(PRIVATE / 'build-servers-shutdown.log').write_bytes(shutdown_stdout)
-write(PRIVATE / 'panel.json', panel)
+(PRIVATE / 'build-preparation.log').write_bytes(preparation.stdout)
+(PRIVATE / 'build-servers-shutdown.log').write_bytes(shutdown.stdout)
+(PRIVATE / 'panel.json').write_bytes(panel_path.read_bytes())
 turns = PRIVATE / 'turns.jsonl'
 turns.write_text(''.join(json.dumps({'cmd': 'turn', 'text': row['text']}, ensure_ascii=False) + '\n'
                          for row in panel), encoding='utf-8')
@@ -116,18 +111,16 @@ env.update(BAXY_MIND_LLM_GGUF=str(model), BAXY_MIND_LLAMA_SERVER=config['llama_s
 command = [sys.executable, 'main.py', '--conductor', '--profile', str(PROFILE), '--capture',
            str(PRIVATE / 'capture'), '--turns-file', str(turns), '--timeout-ms', '120000']
 prereg = {
-    'utc': utc(), 'method': 'Remaining41 of sealed50 after RAM interruption803. First9 finals and interrupted next attempt preserved. Same candidate802 and DLL; new isolated profile, so not50 continuous turns. No model comparison.',
+    'utc': utc(), 'method': 'Registered50 process-read category with sealed candidate804; nine historical requests and41 variants. Build prepared before sealing DLL; model selection is closed.',
     'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-    'original_segment': {'prereg_sha256': sha(previous / 'PREREG.json'),
-                         'exit_sha256': sha(previous / 'EXIT.json'),
-                         'review_sha256': sha(previous_private / 'live-review.json'),
-                         'root_adjudication_sha256': sha(previous_private / 'root-adjudication.json')},
     'private': str(PRIVATE), 'panel_sha256': sha(panel_path), 'turns_sha256': sha(turns),
     'plan_sha256': sha(plan_path), 'cases': [{'case_id': c['case_id'], 'group': c['group']} for c in panel],
     'criteria': plan['criteria'], 'coverage_rule': plan['coverage_rule'],
-    'effect_scope': plan['effect_scope'], 'profile': 'New isolated profile after RAM abort. Cases10-50 in original order; first9 and interrupted attempt remain separately recorded. Wake disabled.',
-    'validation': 'Complete Full798 exit0 and PROCESS_BUDGET802 validation exit0 are required before launch. New real product confirmation; no native model comparison or automated coverage credit.',
-    'source802_pins': pins802, 'source764_pins': pins764, 'sources': sources, 'runner_sha256': sha(__file__),
+    'effect_scope': plan['effect_scope'], 'profile': 'Fresh isolated private conductor profile, wake disabled.',
+    'validation': 'Complete Full804 retry1 exit0 and PROCESS_DEADLINE804 validation exit0 are required before launch. Original Full804 seal failure preserved. New real product confirmation; no native model comparison or automated coverage credit.',
+    'full_validation_path': str(full_validation_root / 'FULL_EXIT.json'),
+    'full_validation_sha256': sha(full_validation_root / 'FULL_EXIT.json'),
+    'source804_pins': pins804, 'sources': sources, 'runner_sha256': sha(__file__),
     'manifest_sha256': sha(manifest), 'model': {'path': str(model), 'sha256': sha(model)},
     'backend': {'path': config['llama_server'], 'sha256': sha(config['llama_server'])},
     'build_preparation_sha256': sha(PRIVATE / 'build-preparation.log'), 'build_prepared_before_seal': True,
@@ -144,7 +137,7 @@ with (PRIVATE / 'launch.log').open('w', encoding='utf-8') as log:
     process = subprocess.Popen(command, cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
                                stdout=log, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW)
     write(OUT / 'PROCESS.json', {'utc': utc(), 'launcher': process.pid, 'runner': os.getpid(), 'command': command})
-    print(json.dumps({'started': True, 'launcher': process.pid, 'registered_turns': 41}), flush=True)
+    print(json.dumps({'started': True, 'launcher': process.pid, 'registered_turns': 50}), flush=True)
     gpu, ram = ProcessTreeGpuSampler(process.pid), RamSampler(process.pid)
 
     def guard_resources():
@@ -200,8 +193,7 @@ with (PRIVATE / 'launch.log').open('w', encoding='utf-8') as log:
               'scope': 'Owned conductor product process tree; no voice or visible desktop UI credit.'})
 outcome = {'utc': utc(), 'exit_code': code, 'manifest_unchanged': sha(manifest) == prereg['manifest_sha256'],
            'sources_unchanged': all(sha(ROOT / path) == digest for path, digest in sources.items()),
-           'source802_unchanged': all(sha(ROOT / path) == digest for path, digest in pins802.items()),
-           'source764_unchanged': all(sha(ROOT / path) == digest for path, digest in pins764.items()),
+           'source804_unchanged': all(sha(ROOT / path) == digest for path, digest in pins804.items()),
            'runner_unchanged': sha(__file__) == prereg['runner_sha256'],
            'app_dll_unchanged': sha(app) == app_sha, 'quality_adjudicated': False}
 write(OUT / 'EXIT.json', outcome)

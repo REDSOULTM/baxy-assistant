@@ -1,4 +1,4 @@
-"""Correlate frozen803 outputs; no verdict inferred from terminal status."""
+"""Correlate frozen805 outputs; no verdict inferred from terminal status."""
 from pathlib import Path
 import argparse
 import hashlib
@@ -13,8 +13,8 @@ parser.add_argument('--count', type=int, default=25)
 parser.add_argument('--summary', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
-private = Path(os.environ['LOCALAPPDATA']) / 'BAXY/C03-process-batch803-resume-private'
-public = root / 'artifacts/comprobaciones/C03/PROCESS_BATCH803_RESUME'
+private = Path(os.environ['LOCALAPPDATA']) / 'BAXY/C03-process-batch805-private'
+public = root / 'artifacts/comprobaciones/C03/PROCESS_BATCH805'
 truncated = []
 
 
@@ -38,17 +38,18 @@ def rows(path):
 
 
 panel = read(private / 'panel.json')
-assert len(panel) == 41
+assert len(panel) == 50
 prereg = read(public / 'PREREG.json')
-original_panel_path = private.parent / 'C03-process-panel795-private/panel.json'
-assert hashlib.sha256(original_panel_path.read_bytes()).hexdigest() == prereg['panel_sha256']
-assert panel == read(original_panel_path)[9:]
+full_path = Path(prereg['full_validation_path'])
+assert hashlib.sha256(full_path.read_bytes()).hexdigest() == prereg['full_validation_sha256']
+assert read(full_path)['exit_code'] == 0 and read(full_path)['source_pins_unchanged'] is True
+assert hashlib.sha256((private / 'panel.json').read_bytes()).hexdigest() == prereg['panel_sha256']
 assert [{'case_id': c['case_id'], 'group': c['group']} for c in panel] == prereg['cases']
 if not args.partial:
     outcome = read(public / 'EXIT.json')
     assert outcome['exit_code'] == 0, outcome
     assert all(outcome[k] for k in ['manifest_unchanged', 'sources_unchanged',
-                                  'source764_unchanged', 'source802_unchanged', 'runner_unchanged', 'app_dll_unchanged'])
+                                  'source804_unchanged', 'runner_unchanged', 'app_dll_unchanged'])
 finals = [r for r in rows(private / 'capture/events.jsonl') if r.get('type') == 'terminal']
 assert len(finals) <= len(panel)
 if not args.partial:
@@ -70,8 +71,8 @@ destination.write_text(json.dumps(review, ensure_ascii=False, indent=2) + '\n', 
 summary = {'completed_terminals': len(review), 'registered_total': len(panel), 'partial': args.partial,
            'truncated_tails': truncated, 'quality_adjudicated': False}
 if not args.partial:
-    (public / 'REVIEW_CAPTURE.json').write_text(json.dumps(summary, indent=2) + '\n', encoding='utf-8')
-    markdown = ['# Respuestas privadas803 — pendientes de adjudicación',
+    (public / 'REVIEW_CAPTURE.json').write_bytes((json.dumps(summary, indent=2) + '\n').encode('utf-8'))
+    markdown = ['# Respuestas privadas805 — pendientes de adjudicación',
                 'Entradas y criterios congelados; diagnóstico del producto registrado.\n']
     for r in review:
         markdown.extend([f"## {r['turn_id']} · {r['case_id']} · {r['group']}",
