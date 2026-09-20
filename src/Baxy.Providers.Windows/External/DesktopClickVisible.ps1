@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$LabelBase64)
+param([Parameter(Mandatory=$true)][string]$LabelBase64,[string]$ControlId="")
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
@@ -106,6 +106,19 @@ function Test-Selected($el){
   } catch [System.Windows.Automation.ElementNotAvailableException] {}
   return $false
 }
+# CU1959: la lectura de controles entrega la identidad UIA (RuntimeId) de cada
+# control; con ella el motor pulsa el control exacto aunque la etiqueta se repita.
+function Find-ControlById($root,[string]$controlId){
+  if($null -eq $root -or [string]::IsNullOrWhiteSpace($controlId)){ return $null }
+  $condition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::IsEnabledProperty,$true)
+  $all=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,$condition)
+  foreach($item in $all){
+    try {
+      if(($item.GetRuntimeId() -join '.') -eq $controlId -and -not $item.Current.IsOffscreen){ return $item }
+    } catch [System.Windows.Automation.ElementNotAvailableException] {}
+  }
+  return $null
+}
 function Find-NamedControls($root,[string[]]$aliases){
   $matches=@()
   if($null -eq $root){ return $matches }
@@ -145,7 +158,14 @@ try {
     Start-Sleep -Milliseconds 400
     $root=[System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
   }
-  $matches=@(Find-NamedControls $root $aliases)
+  $matches=@()
+  if(-not [string]::IsNullOrWhiteSpace($ControlId)){
+    $byId=Find-ControlById $root $ControlId
+    if($null -eq $byId){ Emit $false $false 'visible_control_identity_stale' '' $ControlId $false $false 'uia'; exit 3 }
+    $matches=@($byId)
+  } else {
+    $matches=@(Find-NamedControls $root $aliases)
+  }
   if($matches.Count -eq 0){
     $native=@([BaxyVisibleClickNative]::FindVisibleButtons([string[]]$aliases))
     if($native.Count -gt 1){Emit $false $false 'visible_button_ambiguous' '' '' $false $false 'uia';exit 4}

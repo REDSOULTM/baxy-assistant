@@ -44,26 +44,67 @@ public static class BaxyVisibleListNative {
   }
 }
 '@
-function Emit([bool]$ok,[string]$error,[string]$window,$controls,[int]$total){
+function Emit([bool]$ok,[string]$error,[string]$window,$controls,[int]$total,[string]$process){
   [pscustomobject]@{
     version=1
     ok=$ok
     error=$error
     window=$window
+    process=$process
     controlCount=$total
     controls=@($controls)
     authority='windows_uia_snapshot'
   }|ConvertTo-Json -Compress -Depth 4
 }
+# CU1959: el motor general necesita saber en que estado esta cada control
+# (marcado, seleccionado, desplegado, con foco, con valor) y en que zona de la
+# ventana cae, para elegir un paso sin ver la pantalla.
+function Get-State($el){
+  $parts=@()
+  try {
+    $pattern=$null
+    if($el.TryGetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern,[ref]$pattern)){
+      $state=([System.Windows.Automation.TogglePattern]$pattern).Current.ToggleState
+      if($state -eq [System.Windows.Automation.ToggleState]::On){$parts+='on'} elseif($state -eq [System.Windows.Automation.ToggleState]::Off){$parts+='off'}
+    }
+    if($el.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern,[ref]$pattern)){
+      if(([System.Windows.Automation.SelectionItemPattern]$pattern).Current.IsSelected){$parts+='selected'}
+    }
+    if($el.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern,[ref]$pattern)){
+      $state=([System.Windows.Automation.ExpandCollapsePattern]$pattern).Current.ExpandCollapseState
+      if($state -eq [System.Windows.Automation.ExpandCollapseState]::Expanded){$parts+='expanded'} elseif($state -eq [System.Windows.Automation.ExpandCollapseState]::Collapsed){$parts+='collapsed'}
+    }
+    if($el.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$pattern)){
+      $value=[string]([System.Windows.Automation.ValuePattern]$pattern).Current.Value
+      if(-not [string]::IsNullOrWhiteSpace($value)){ $value=($value -replace '\s+',' ').Trim(); if($value.Length -gt 40){$value=$value.Substring(0,40)}; $parts+=('value='+$value) }
+    }
+    if($el.Current.HasKeyboardFocus){$parts+='focused'}
+  } catch [System.Windows.Automation.ElementNotAvailableException] {}
+  return ($parts -join ',')
+}
+function Get-Zone($el,$bounds){
+  try {
+    $r=$el.Current.BoundingRectangle
+    if($r.IsEmpty -or $bounds.Width -le 0 -or $bounds.Height -le 0){ return '' }
+    $cx=($r.X+$r.Width/2-$bounds.X)/$bounds.Width
+    $cy=($r.Y+$r.Height/2-$bounds.Y)/$bounds.Height
+    $row=if($cy -lt 0.33){'top'}elseif($cy -lt 0.66){'middle'}else{'bottom'}
+    $col=if($cx -lt 0.33){'left'}elseif($cx -lt 0.66){'center'}else{'right'}
+    return ($row+'-'+$col)
+  } catch { return '' }
+}
 try {
   if($Limit -lt 1){$Limit=1}
   if($Limit -gt 60){$Limit=60}
   $hwnd=[BaxyVisibleListNative]::GetForegroundWindow()
-  if($hwnd -eq [IntPtr]::Zero){ Emit $false 'active_window_not_found' '' @() 0; exit 2 }
+  if($hwnd -eq [IntPtr]::Zero){ Emit $false 'active_window_not_found' '' @() 0 ''; exit 2 }
   $hwnd=[BaxyVisibleListNative]::LargestVisible($hwnd)
   $root=[System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
-  if($null -eq $root){ Emit $false 'visible_controls_root_unavailable' '' @() 0; exit 3 }
+  if($null -eq $root){ Emit $false 'visible_controls_root_unavailable' '' @() 0 ''; exit 3 }
   $windowName=$root.Current.Name
+  $processName=''
+  try { [uint32]$procId=0; [void][BaxyVisibleListNative]::GetWindowThreadProcessId($hwnd,[ref]$procId); $processName=(Get-Process -Id $procId -ErrorAction Stop).ProcessName } catch {}
+  $bounds=$root.Current.BoundingRectangle
   $enabled=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::IsEnabledProperty,$true)
   $all=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,$enabled)
   # Lo que una persona pulsa o escribe va primero. Los contenedores —paneles,
@@ -85,11 +126,17 @@ try {
       if($name.Length -gt 80){ $name=$name.Substring(0,80) }
       # Un mismo nombre repetido no informa de nada nuevo y gasta el contexto del
       # modelo: se nombra una vez. La ambiguedad la sigue detectando el clic.
-      $key=$item.Current.ControlType.ProgrammaticName+'|'+$name
+      $zone=Get-Zone $item $bounds
+      # El mismo nombre en otra zona es otro control (dos «Biblioteca», el del
+      # menu y el titulo); en la misma zona es un duplicado.
+      $key=$item.Current.ControlType.ProgrammaticName+'|'+$name+'|'+$zone
       if(-not $seen.Add($key)){ continue }
       $total++
       $kind=$item.Current.ControlType.ProgrammaticName -replace '^ControlType\.',''
-      $entry=[pscustomobject]@{name=$name;kind=$kind}
+      $state=Get-State $item
+      $controlId=''
+      try { $controlId=($item.GetRuntimeId() -join '.') } catch {}
+      $entry=[pscustomobject]@{name=$name;kind=$kind;state=$state;zone=$zone;controlId=$controlId}
       if($actionable -contains $kind){ $primary+=@($entry) } else { $secondary+=@($entry) }
     } catch [System.Windows.Automation.ElementNotAvailableException] {}
   }
@@ -98,5 +145,8 @@ try {
     $controls+=@($secondary | Select-Object -First ($Limit-$controls.Count))
   }
   $controls=@($controls | Select-Object -First $Limit)
-  Emit $true '' $windowName $controls $total
-} catch { Emit $false 'visible_controls_uia_failed' '' @() 0; exit 7 }
+  $indexed=@()
+  $position=0
+  foreach($entry in $controls){ $position++; $entry | Add-Member -NotePropertyName index -NotePropertyValue $position; $indexed+=@($entry) }
+  Emit $true '' $windowName $indexed $total $processName
+} catch { Emit $false 'visible_controls_uia_failed' '' @() 0 ''; exit 7 }

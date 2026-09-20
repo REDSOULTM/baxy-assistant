@@ -743,6 +743,22 @@ public static class ProductCatalog
             "input.pointer.control.win32.postread.v1",
             ToolExposure.Public,
             "Mueve el puntero al centro, hace clic en su posición actual o desplaza hacia abajo y verifica el recibo Win32."),
+        // CU1959 (plan post-goal Fase 4, D21): el motor general de computer use
+        // desplaza la ventana en primer plano por pasos de rueda y sólo cuenta
+        // el desplazamiento si la superficie cambió; un panel ya al fondo no
+        // cambia y se dice.
+        Descriptor(
+            "input.scroll",
+            Schema(
+                [
+                    Integer("amount", 1, 10),
+                    String("direction", values: ["down", "up"]),
+                ],
+                ["amount", "direction"]),
+            OperationRisks.LowReversible,
+            "input.scroll.win32.wheel.surface.postread.v1",
+            ToolExposure.Public,
+            "Desplaza la ventana en primer plano hacia arriba o hacia abajo la cantidad de pasos de rueda pedida y verifica que la superficie visible cambió."),
         Descriptor(
             "input.select.all",
             EmptySchema(),
@@ -759,14 +775,24 @@ public static class ProductCatalog
             "Escribe texto Unicode literal en el control enfocado y verifica que Windows aceptó cada evento SendInput."),
         Descriptor(
             "input.visible.click",
-            Schema([String("label", maximumUtf8Bytes: 256, nonWhitespace: true)], ["label"]),
+            // CU1959: el motor general pulsa por la identidad UIA que la lectura
+            // de controles le dio (controlId) cuando la etiqueta se repite; la
+            // etiqueta sigue siendo obligatoria y es lo que el revisor ve.
+            Schema(
+                [
+                    String("controlId", types: NullableString, maximumLength: 128),
+                    String("label", maximumUtf8Bytes: 256, nonWhitespace: true),
+                ],
+                ["label"]),
             OperationRisks.ExternalCommunication,
             "input.visible.click.windows.uia.invoke.postread.v1",
             ToolExposure.Public,
             "Invoca un único control visible por etiqueta en la ventana en primer plano (UIA, luego OCR, luego visión) y exige postlectura: seleccionado, desaparecido o superficie cambiada."),
         Descriptor(
             "input.visible.controls",
-            Schema([Integer("limit", 1, 60)], []),
+            // CU1959: includeText añade las líneas de texto leídas (OCR) a los
+            // controles UIA; es la vista que el motor general le da al modelo.
+            Schema([Boolean("includeText", types: NullableBoolean), Integer("limit", 1, 60)], []),
             OperationRisks.ReadOnly,
             "input.visible.controls.windows.uia.snapshot.v1",
             ToolExposure.Public,
@@ -1003,6 +1029,28 @@ public static class ProductCatalog
             "message.send.test.forced.destination.ocr.postread.v1",
             ToolExposure.Public,
             "Decisión del dueño §6 (y §3 del 18-09 para el correo): envío real a sus canales de prueba. El destino se fuerza SIEMPRE al canal seguro del dueño (WhatsApp grupo Música, Discord usuario Violeta, correo a la casilla de pruebas del dueño), nunca al destinatario nombrado; en WhatsApp/Discord escribe el texto, pulsa enviar y verifica la entrega por OCR; en correo envía por el Outlook del dueño y verifica la copia en Elementos enviados; el recibo guarda el destinatario pedido y el destino real forzado."),
+        // CU1959 (plan post-goal Fase 4, D21): un motor general de computer use.
+        // El shell mira la ventana en primer plano (controles UIA y texto OCR),
+        // la mente elige UN paso del repertorio (pulsar, escribir, tecla,
+        // desplazar, abrir, terminar), el core lo ejecuta con su postlectura y
+        // se vuelve a mirar, hasta que la comprobación de éxito se ve en
+        // pantalla o se agota el presupuesto. Cada paso conserva el riesgo de
+        // su primitiva. El core solo no puede correr el bucle: sin la mente
+        // delante contesta que le falta.
+        Descriptor(
+            "mission.computer_use",
+            Schema(
+                [
+                    Integer("budgetSteps", 1, 12, types: NullableInteger),
+                    String("goal", maximumUtf8Bytes: 512, nonWhitespace: true),
+                    String("successCheck", types: NullableString, maximumUtf8Bytes: 256),
+                ],
+                ["goal"]),
+            OperationRisks.LowReversible,
+            "mission.computer_use.shell.loop.v1",
+            ToolExposure.Public,
+            "Cumple un objetivo dentro de cualquier aplicación mirando la ventana en primer plano, eligiendo un paso a la vez (pulsar, escribir, tecla, desplazar, abrir) y verificando cada uno hasta ver la comprobación de éxito o agotar el presupuesto.",
+            requiresObservedEffect: false),
         Descriptor(
             "network.dns.status",
             EmptySchema(),

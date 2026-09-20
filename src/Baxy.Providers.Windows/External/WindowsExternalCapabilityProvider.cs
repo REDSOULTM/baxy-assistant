@@ -49,6 +49,7 @@ public sealed class WindowsExternalCapabilityProvider : IExternalCapabilityProvi
             new WindowsInventoryAdapter(),
             new WindowsDesktopInteractionAdapter(),
             new WindowsVisibleControlAdapter(),
+            new WindowsScrollAdapter(),
             new WindowsKnownFileAdapter(root),
             new WindowsSandboxNamedFileAdapter(root),
             new WindowsKnownBackupAdapter(root),

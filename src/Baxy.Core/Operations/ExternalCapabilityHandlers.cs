@@ -48,6 +48,7 @@ internal static class ExternalCapabilityHandlers
         "game.purchase.prepare",
         "input.key.press",
         "input.keyboard.layout",
+        "input.scroll",
         "input.keyboard.open",
         "input.keyboard.status",
         "input.pointer.control",

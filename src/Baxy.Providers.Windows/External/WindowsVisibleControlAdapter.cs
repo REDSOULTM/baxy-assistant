@@ -87,14 +87,33 @@ internal sealed class WindowsVisibleControlAdapter : IExternalOperationAdapter
         if (!File.Exists(_script))
             return ExternalJson.Failure(operation, "visible_click_script_missing");
         string label;
+        string? controlId = null;
         try
         {
             label = ExternalJson.RequiredString(arguments, "label");
+            // CU1959: the engine names the exact control it saw in the last
+            // listing; a stale identity is reported, never guessed around.
+            if (arguments.TryGetProperty("controlId", out JsonElement identity)
+                && identity.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(identity.GetString()))
+            {
+                controlId = identity.GetString()!.Trim();
+            }
         }
         catch (InvalidDataException)
         {
             return ExternalJson.FailureBeforeEffect(
                 operation, "visible_click_argument_invalid");
+        }
+
+        if (controlId is not null)
+        {
+            ExternalCapabilityReceipt identified = await InvokeUiaAsync(
+                operation, label, cancellationToken, controlId).ConfigureAwait(false);
+            if (identified.ErrorCode != "visible_control_identity_stale")
+                return identified;
+            // The control moved or was redrawn since the listing: fall through
+            // to the ordinary cascade by label, which is what the reviewer saw.
         }
 
         // UI1731 → UI1735: an application that was just opened draws its
@@ -166,6 +185,13 @@ internal sealed class WindowsVisibleControlAdapter : IExternalOperationAdapter
             limit = Math.Clamp(value, 1, 60);
         }
 
+        // CU1959: the engine's view always carries the written text as well
+        // as the controls; a Chromium client exposes a handful of generic
+        // controls and everything a person reads is only in the pixels.
+        bool includeText = arguments.ValueKind == JsonValueKind.Object
+            && arguments.TryGetProperty("includeText", out JsonElement wantsText)
+            && wantsText.ValueKind == JsonValueKind.True;
+
         try
         {
             ExternalProcessResult process = await _runner.RunAsync(
@@ -201,8 +227,28 @@ internal sealed class WindowsVisibleControlAdapter : IExternalOperationAdapter
                 && listed.ValueKind == JsonValueKind.Array
                     ? listed.GetArrayLength()
                     : 0;
-            if (counted > 1)
+            if (counted > 1 && !includeText)
                 return ExternalJson.Success(operation, root.Clone(), false);
+            if (counted > 1)
+            {
+                string[]? text = await WindowsVisibleOcrLocator
+                    .TryReadLinesAsync(limit, cancellationToken).ConfigureAwait(false);
+                JsonElement snapshot = root.Clone();
+                JsonElement merged = ExternalJson.Create(writer =>
+                {
+                    writer.WriteStartObject();
+                    foreach (JsonProperty property in snapshot.EnumerateObject())
+                        property.WriteTo(writer);
+                    writer.WriteStartArray("text");
+                    foreach (string readLine in text ?? [])
+                        writer.WriteStringValue(readLine);
+                    writer.WriteEndArray();
+                    writer.WriteString(
+                        "textAuthority", text is null ? "unavailable" : "windows_media_ocr_lines");
+                    writer.WriteEndObject();
+                });
+                return ExternalJson.Success(operation, merged, false);
+            }
 
             string[]? lines = await WindowsVisibleOcrLocator
                 .TryReadLinesAsync(limit, cancellationToken).ConfigureAwait(false);
@@ -246,9 +292,13 @@ internal sealed class WindowsVisibleControlAdapter : IExternalOperationAdapter
     private async ValueTask<ExternalCapabilityReceipt> InvokeUiaAsync(
         string operation,
         string label,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? controlId = null)
     {
         string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(label));
+        string[] scriptArguments = controlId is null
+            ? ["-NoProfile", "-NonInteractive", "-STA", "-File", _script, "-LabelBase64", encoded]
+            : ["-NoProfile", "-NonInteractive", "-STA", "-File", _script, "-LabelBase64", encoded, "-ControlId", controlId];
         var effectBoundary = new ExternalEffectBoundary();
         // The descriptor admits «surface changed» as post-read. A Calculator
         // digit stays enabled and unselected after Invoke, so the surface is
@@ -268,7 +318,7 @@ internal sealed class WindowsVisibleControlAdapter : IExternalOperationAdapter
             effectBoundary.Cross(cancellationToken);
             ExternalProcessResult process = await _runner.RunAsync(
                 "powershell.exe",
-                ["-NoProfile", "-NonInteractive", "-STA", "-File", _script, "-LabelBase64", encoded],
+                scriptArguments,
                 TimeSpan.FromSeconds(15), cancellationToken).ConfigureAwait(false);
             string? line = process.Output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
                 .LastOrDefault();

@@ -76,6 +76,17 @@ internal sealed record MindPlanResult(
 
 internal sealed record MindComposedMessage(string Text);
 
+/// <summary>
+/// CU1959: one step of the general computer-use loop chosen by the mind over
+/// the compact view of the foreground window. <see cref="Operation"/> is a
+/// catalog primitive, or <c>done</c> when the success check is visible, or
+/// <c>none</c> when the mind sees no way forward.
+/// </summary>
+internal sealed record MindComputerUseStep(
+    string Operation,
+    JsonObject Arguments,
+    string Reason);
+
 internal sealed record MindVoiceStatus(
     bool Available,
     bool InputAvailable,
@@ -1076,6 +1087,47 @@ internal sealed class MindSidecarClient : IAsyncDisposable
         }
 
         return reply["arguments"]?.DeepClone() as JsonObject;
+    }
+
+    // CU1959: one decision per look; the model reads at most sixty controls and
+    // forty text lines and answers a single strict JSON step at temperature 0.
+    internal static readonly TimeSpan ComputerUseStepRequestTimeout =
+        TimeSpan.FromSeconds(30);
+
+    public async Task<MindComputerUseStep?> DecideComputerUseStepAsync(
+        string objective,
+        string goal,
+        string? successCheck,
+        JsonObject view,
+        JsonArray history,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(history);
+        JsonObject? reply = await RequestAsync(
+            new JsonObject
+            {
+                ["type"] = "computer_use.step",
+                ["objective"] = objective,
+                ["goal"] = goal,
+                ["successCheck"] = successCheck,
+                ["view"] = view.DeepClone(),
+                ["history"] = history.DeepClone(),
+            },
+            ComputerUseStepRequestTimeout,
+            cancellationToken).ConfigureAwait(false);
+        if (reply is null
+            || (string?)reply["type"] != "computer_use.step.result"
+            || (string?)reply["operation"] is not { Length: > 0 } operation)
+        {
+            return null;
+        }
+
+        JsonObject arguments = reply["arguments"]?.DeepClone() as JsonObject ?? new JsonObject();
+        return new MindComputerUseStep(
+            operation,
+            arguments,
+            (string?)reply["reason"] ?? string.Empty);
     }
 
     public async Task<MindComposedMessage?> ComposeUserMessageAsync(
