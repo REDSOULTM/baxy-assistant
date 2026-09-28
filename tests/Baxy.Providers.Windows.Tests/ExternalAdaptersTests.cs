@@ -1620,6 +1620,34 @@ public sealed class ExternalAdaptersTests
         });
     }
 
+    // M54 (v3b-final F-w02-t4, F-w11-t3): «súbele harto a la música» with the output at 100 % and muted ended in
+    // «no se pudo observar el cambio». The level already at the end asked is the fact, with the mute that explains
+    // the silence, said before any boundary is crossed.
+    [TestCase(1.0f, true, "up", "volume_already_at_maximum_muted")]
+    [TestCase(1.0f, false, "up", "volume_already_at_maximum")]
+    [TestCase(0.0f, false, "down", "volume_already_at_minimum")]
+    public async Task RelativeVolumeAlreadyAtTheAskedEndIsANamedFactBeforeTheEffectBoundary(
+        float volume, bool muted, string direction, string expectedError)
+    {
+        var endpoint = new FakeAudioEndpoint("output-private", muted: muted, volume: volume);
+        var adapter = new WindowsAudioAdjustmentAdapter(() => endpoint);
+
+        ExternalCapabilityReceipt receipt = await adapter.InvokeAsync(
+            "audio.volume.adjust",
+            Json($$"""{"amount":20,"direction":"{{direction}}"}"""),
+            CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(receipt.Verified, Is.False);
+            Assert.That(receipt.EffectObserved, Is.False);
+            Assert.That(receipt.EffectMayHaveOccurred, Is.False);
+            Assert.That(receipt.ErrorCode, Is.EqualTo(expectedError));
+            Assert.That(endpoint.ReadVolumeScalar(), Is.EqualTo(volume));
+            Assert.That(endpoint.ReadMuted(), Is.EqualTo(muted));
+        });
+    }
+
     [Test]
     public async Task AudioPostreadExceptionAfterSetPreservesAmbiguousEffect()
     {
@@ -2626,6 +2654,41 @@ public sealed class ExternalAdaptersTests
             Assert.That(receipt.Result?.GetProperty("results")[0].GetProperty("title").GetString(), Is.EqualTo("Parking La Puntilla"));
             Assert.That(handler.Asked, Has.Count.EqualTo(3));
             Assert.That(Uri.UnescapeDataString(handler.Asked[2].Uri.Query), Does.Contain("viewbox=-6.254,36.596,-6.234,36.576"));
+        });
+    }
+
+    // M54 (v3b-final F-p01-t2): this PC's city «Valparaiso» (Chile) geocoded to Valparaiso,
+    // Indiana, the first candidate, and its car parks were the answer. Among candidates of
+    // the same name the one in the preferred country wins; this PC's own city must be in
+    // this PC's country; more words of the place still win over the country.
+    [Test]
+    public void ThePlaceOfThisPcsCityIsInThisPcsCountry()
+    {
+        const string valparaiso = """
+            [{"boundingbox":["41.4","41.5","-87.1","-87.0"],"display_name":"Valparaiso, Porter County, Indiana, United States","address":{"country_code":"us"}},
+             {"boundingbox":["-33.10","-33.00","-71.70","-71.55"],"display_name":"Valparaíso, Provincia de Valparaíso, Región de Valparaíso, Chile","address":{"country_code":"cl"}}]
+            """;
+        const string indianaOnly = """
+            [{"boundingbox":["41.4","41.5","-87.1","-87.0"],"display_name":"Valparaiso, Porter County, Indiana, United States","address":{"country_code":"us"}}]
+            """;
+        const string named = """
+            [{"boundingbox":["41.4","41.5","-87.1","-87.0"],"display_name":"Valparaiso, Porter County, Indiana, United States","address":{"country_code":"us"}},
+             {"boundingbox":["-33.10","-33.00","-71.70","-71.55"],"display_name":"Valparaíso, Chile","address":{"country_code":"cl"}}]
+            """;
+        string[] words = ["valparaiso"];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(OpenStreetMapPlaceSource.AreaOf(valparaiso, words, words)?.Latitude, Is.EqualTo(41.45).Within(0.001),
+                "without a country, Nominatim's order stands");
+            Assert.That(OpenStreetMapPlaceSource.AreaOf(valparaiso, words, words, "CL")?.Latitude, Is.EqualTo(-33.05).Within(0.001));
+            Assert.That(OpenStreetMapPlaceSource.AreaOf(valparaiso, words, words, "CL", requireCountry: true)?.Latitude,
+                Is.EqualTo(-33.05).Within(0.001));
+            Assert.That(OpenStreetMapPlaceSource.AreaOf(indianaOnly, words, words, "CL", requireCountry: true), Is.Null);
+            Assert.That(OpenStreetMapPlaceSource.AreaOf(indianaOnly, words, words, "CL")?.Latitude, Is.EqualTo(41.45).Within(0.001),
+                "a named place of another country is still that place");
+            Assert.That(OpenStreetMapPlaceSource.AreaOf(named, words, ["valparaiso", "indiana"], "CL")?.Latitude,
+                Is.EqualTo(41.45).Within(0.001), "the place's own words outrank the preferred country");
         });
     }
 
