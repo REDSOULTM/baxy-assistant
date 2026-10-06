@@ -175,7 +175,8 @@ def test_the_desire_to_hear_something_joyful_is_played_on_its_canonical_surface(
     assert _effects(canonical) == ("media.play.youtube",)
 
 
-@pytest.mark.parametrize("text", ["pon algo", "pon algo aquí", "pon algo para dormir", "pon algo nuevo"])
+# M176: «pon algo para dormir» is music for sleeping (owner: only a bare «pon música» asks); no purpose still asks.
+@pytest.mark.parametrize("text", ["pon algo", "pon algo aquí", "pon algo para mi mamá", "pon algo nuevo"])
 def test_something_without_a_character_still_asks_what_to_play(text: str) -> None:
     reading = read(text, available_operations=OPERATIONS)
     assert reading.effects is None

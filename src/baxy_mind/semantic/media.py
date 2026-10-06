@@ -306,7 +306,7 @@ _PURPOSES = (
     (r"trabajar|trabajo|work|working", "música para trabajar", "work"),
     (r"fiestas?|carrete|party|parties|partying", "música de fiesta", "party"),
     (r"bailar|baile|dance|dancing", "música para bailar", "dance"),
-    (r"dormir|siesta|sleep|sleeping|nap", "música para dormir", "sleep"),
+    (r"dormir|siesta|fall\s+asleep|asleep|sleep|sleeping|nap", "música para dormir", "sleep"),
     (r"relajarme|relajarse|relajar|relax|relaxing|descansar", "música para relajarse", "relaxing"),
     (r"meditar|meditacion|meditation", "música para meditar", "meditation"),
     (r"yoga", "música para yoga", "yoga"),
@@ -323,6 +323,8 @@ _PURPOSE_HEAD = (
     r"escuchar|escuchemos|play|put\s+on|start|turn\s+on|listen\s+to|let'?s\s+(?:hear|listen\s+to)|"
     r"i\s+(?:want|need)(?:\s+to\s+(?:hear|listen\s+to))?|i'?d\s+like(?:\s+to\s+(?:hear|listen\s+to))?)"
 )
+# M176: an order to put something on (not a wish: «quiero algo para dormir» may be a pill).
+_PURPOSE_ORDER = r"(?:pon|pone|ponme|poneme|ponnos|reproduce|reproduceme|reproducime|toca|tocame|play|put\s+on)\s"
 _ENGLISH_PURPOSE_HEAD = re.compile(r"^(?:open|play|put|start|turn|listen|let|i)\b")
 _PURPOSE_CONTAINER = re.compile(
     r"\b(?:musica|music|canciones|cancion|temas|tema|songs?|tracks?|tunes|beats|playlists?|"
@@ -357,6 +359,10 @@ def purpose_music_query(text: str) -> str | None:
     if head is None and music_first is None:
         return None
     container = _PURPOSE_CONTAINER.search(rest)
+    if container is None and re.match(_PURPOSE_ORDER, folded) is not None:
+        # M176 (probe «ponme algo para relajarme», «pon algo para estudiar» asked what to play; owner: only a bare
+        # «pon música» asks): something put on for a purpose is music for it.
+        container = re.match(r"(?:algo|something)\b", rest)
     if container is None or re.search(r"\d", rest):
         return None
     found = None

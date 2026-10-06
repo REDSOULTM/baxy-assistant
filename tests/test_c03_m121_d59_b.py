@@ -95,7 +95,9 @@ def test_a_playlist_named_by_its_own_name_is_still_asked(text: str) -> None:
 @pytest.mark.parametrize(
     "text",
     [
-        "pon algo para dormir",  # no music said (tanda 4: asked)
+        # M176 (owner: only a bare «pon música» asks): «pon algo para dormir» is music for sleeping now; a wish for
+        # something to sleep is no order to play.
+        "quiero algo para dormir",
         "no pongas música para dormir",
         "pon una alarma para el gym",
         "pon la versión de estudio de esa canción",

@@ -6,6 +6,9 @@ phrasings the readers got wrong; every phrasing here is our own.
    jazz for dinner», «play the beatles») asked what to play: no reader grounds the query and the provider grounds only
    on a music noun, so even the extraction's query was asked again. When the extraction gives nothing that grounds, the
    words the person named it with are the query (``patterns.said_music_query`` in ``_direct_arguments_result``).
+2. Something put on for a purpose («ponme algo para relajarme», «pon algo para dormir», «play something to relax»)
+   asked what to play; owner: only a bare «pon música» asks. It is music for that purpose
+   (``media.purpose_music_query``, D59.4).
 3. A pendiente or the person's to-do written down («anota de pendiente ir al notario», «anota en mi to-do: pagar
    netflix») became a note (beside the task, or alone): the person's task store is named (owner D59).
 4. A length with its half or quarter («en una hora y media» → one hour, titled «y media …»), a quarter of an hour and
@@ -33,6 +36,7 @@ from baxy_mind import __main__ as sidecar
 from baxy_mind.llm import DirectArgumentExtraction
 from baxy_mind.semantic import arguments
 from baxy_mind.semantic.dialogue import DialogueState
+from baxy_mind.semantic.media import purpose_music_query
 from baxy_mind.semantic.patterns import (
     resolve_explicit_clarification_intent,
     resolve_explicit_effects,
@@ -164,6 +168,36 @@ def test_a_bare_order_to_play_still_asks_what_to_play(text: str) -> None:
 
 def test_what_is_playing_is_still_read() -> None:
     assert _effects("qué está sonando") == ("media.status",)
+
+
+# ------------------------------------------------------------------ 2. something put on for a purpose
+
+
+@pytest.mark.parametrize(
+    ("text", "query"),
+    [
+        ("ponme algo para relajarme", "música para relajarse"),
+        ("pon algo para dormir", "música para dormir"),
+        ("pon algo para estudiar", "música para estudiar"),
+        ("ponme algo pa entrenar", "música para entrenar"),
+        ("play something to relax", "relaxing music"),
+        ("put on something for studying", "study music"),
+        ("play some music to fall asleep", "sleep music"),
+    ],
+)
+def test_something_put_on_for_a_purpose_is_music_for_it(text: str, query: str) -> None:
+    assert purpose_music_query(text) == query
+    assert resolve_explicit_clarification_intent(text, OPERATIONS) is None, text
+    assert _effects(text) == ("media.play.youtube",), text
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["quiero algo para dormir", "necesito algo para dormir", "pon algo nuevo", "pon algo para mi mamá",
+     "ponme algo para el dolor de cabeza", "pon una alarma para el gym"],
+)
+def test_a_wish_or_something_with_no_purpose_is_no_music(text: str) -> None:
+    assert purpose_music_query(text) is None, text
 
 
 # ------------------------------------------------------------------ 3. the person's task store, never a note
